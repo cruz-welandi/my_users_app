@@ -47,7 +47,7 @@ post '/users' do
   new_user = User.create(
     firstname: request_payload['firstname'],
     lastname: request_payload['lastname'],
-    age: request_payload['age'],
+    age: request_payload['age'].to_i,
     password: request_payload['password'],
     email: request_payload['email']
   )
@@ -71,84 +71,112 @@ post '/users' do
   end
 end
 
-=begin
 post '/sign_in' do
-  content_type :json
-  user_info = JSON.parse(request.body.read)
-  user = users.find_by_email(user_info["email"])
-  if user && user[:password] == user_info["password"]
-    session[:user_id] = user[:id] # Crée une session avec l'identifiant de l'utilisateur
-    user.delete(:password) # Supprime le mot de passe avant de renvoyer l'utilisateur
-    user.to_json
+
+  request.body.rewind
+  body = request.body.read
+
+  if body.empty?
+    halt 400, { error: 'Request body is empty.' }.to_json
+  end
+
+  begin
+    data = JSON.parse(body)
+  rescue JSON::ParserError
+    halt 401, { error: 'Request body is not valid JSON.' }.to_json
+  end
+
+  user = User.find_by(email: data['email'])
+
+  if user && user.authenticate(data['password'])
+    session[:user_id] = user.id
+
+    {
+      id: user.id,
+      firstname: user.firstname,
+      lastname: user.lastname,
+      age: user.age,
+      email: user.email
+    }.to_json
   else
-    status 401 # Code d'erreur pour une authentification non réussie
-    {error: "Invalid email or password"}.to_json
+      halt 401, { error: 'Invalid credentials.' }.to_json
   end
 end
 
 put '/users' do
-  content_type :json
-
   # Vérifiez si l'utilisateur est connecté
-  if session[:user_id]
-    user_info = JSON.parse(request.body.read)
-    user = users.find(session[:user_id])
+  if session[:user_id].nil?
+    halt 401, { error: 'You must be logged in to perform this action.' }.to_json
+  end
 
-    if user
-      # Mettez à jour le mot de passe de l'utilisateur
-      user[:password] = user_info["new_password"]
+  request.body.rewind
+  body = request.body.read
 
-      # Supprimez le mot de passe avant de renvoyer l'utilisateur
-      user.delete(:password)
+  if body.empty?
+    halt 400, { error: 'Request body is empty.' }.to_json
+  end
 
-      # Renvoyez l'utilisateur mis à jour
-      user.to_json
-    else
-      status 404
-      {error: "User not found"}.to_json
-    end
+  begin
+    data = JSON.parse(body)
+  rescue JSON::ParserError
+    halt 401, { error: 'Request body is not valid JSON.' }.to_json
+  end
+
+  user = User.find(session[:user_id])
+
+  if user.nil?
+    halt 404, { error: 'User not found.' }.to_json
   else
-    status 401
-    {error: "You must be logged in to perform this action"}.to_json
+    user.password = data['new_password']
+    if user.save
+      {
+        id: user.id,
+        firstname: user.firstname,
+        lastname: user.lastname,
+        age: user.age,
+        email: user.email
+      }.to_json
+    else
+      halt 500, { error: 'An error occurred while updating the password.' }.to_json
+    end
   end
 end
-
 
 delete '/sign_out' do
   # Vérifiez si l'utilisateur est connecté
-  if session[:user_id]
-    # Déconnectez l'utilisateur
-    session.clear
-    # Renvoyez un code de statut HTTP 204 (No Content)
-    status 204
-  else
-    status 401
-    {error: "Vous devez être connecté pour effectuer cette action"}.to_json
+  if session[:user_id].nil?
+    halt 401, { error: 'You must be logged in to perform this action.' }.to_json
   end
-end
 
+  # Déconnectez l'utilisateur
+  session.clear
+
+  # Retournez un code de statut HTTP 204
+  status 204
+end
 
 delete '/users' do
   # Vérifiez si l'utilisateur est connecté
-  if session[:user_id]
-    # Trouvez l'utilisateur actuel
-    user = users.find(session[:user_id])
-    if user
-      # Déconnectez l'utilisateur
-      session.clear
-      # Supprimez l'utilisateur
-      users.delete(user)
-      # Renvoyez un code de statut HTTP 204 (No Content)
-      status 204
-    else
-      status 404
-      {error: "Utilisateur non trouvé"}.to_json
-    end
+  if session[:user_id].nil?
+    halt 401, { error: 'You must be logged in to perform this action.' }.to_json
+  end
+
+  # Trouvez l'utilisateur actuel
+  user = User.find(session[:user_id])
+
+  if user.nil?
+    halt 404, { error: 'User not found.' }.to_json
   else
-    status 401
-    {error: "Vous devez être connecté pour effectuer cette action"}.to_json
+    # Détruisez l'utilisateur
+    user.destroy
+
+    # Déconnectez l'utilisateur
+    session.clear
+
+    # Retournez un code de statut HTTP 204
+    status 204
   end
 end
-=end
+
 
 set :port, 8080  # Port sur lequel le serveur écoutera   require 'sqlite3'
