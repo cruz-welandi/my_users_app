@@ -4,15 +4,47 @@ require './my_user_model'
 
 enable :sessions
 
-user_info1 = {id: 1, firstname: 'hance', lastname: 'hance', age: 30, password: '2145', email: 'hance@example.com'}
+user_info1 = {firstname: 'hance', lastname: 'hance', age: 30, password: '2145', email: 'hance@example.com'}
 user_id1 = User.create(user_info1)
 
-#user_info2 = {firstname: 'Jane', lastname: 'Doe', age: 28, password: 'password456', email: 'jane.doe@example.com'}
-#user_id2 = User.create(user_info2)
+user_info3 = {firstname: 'hance', lastname: 'hance', age: 20, password: '26645', email: 'hans@example.com'}
+user_id3 = User.create(user_info3)
+
+
+user_info2 = {firstname: 'Jane', lastname: 'Doe', age: 28, password: 'password456', email: 'jane.doe@example.com'}
+user_id2 = User.create(user_info2)
+
+user_info4 = { firstname: 'hane', lastname: 'hane', age: 30, password: '2145', email: 'hane@example.com'}
+user_id4 = User.create(user_info4)
+
+user_info5 = {firstname: 'hance', lastname: 'hance', age: 30, password: '2145', email: 'hance@example.com'}
+user_id5 = User.create(user_info5)
+
+user_info = {firstname: 'jone', lastname: 'Doe', age: 50, password: '2145', email: 'doe@example.com'}
+user_id = User.create(user_info)
 
 get '/' do
-  send_file 'views/index.html'
+  users = User.all.first(5)
+  html = File.read('views/index.html')
+  users_html = ""
+  users.each do |user|
+    users_html += "<tr>
+                <td>#{user.firstname}</td>
+                <td>#{user.lastname}</td>
+                <td>#{user.age}</td>
+                <td>#{user.email}</td>
+            </tr>"
+  end
+  html.sub!('<tr>
+                    <td>XXXX</td>
+                    <td>XXXX</td>
+                    <td>XXXX</td>
+                    <td>XXXX</td>
+                </tr>', users_html)
+  html
 end
+
+
 
 get '/users' do
   content_type :json
